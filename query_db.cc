@@ -11,6 +11,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <bits/stdc++.h>
 using namespace std;
 
 /**
@@ -73,7 +74,7 @@ bool findPageNumber(const string line) {
 }
 
 /// State machine states definition
-enum State {Initial, PageNumber, Title, Authors, Keywords, Abstract, References, Wait, LookinForPageNumber, None};
+enum State {Initial, PageNumber, Title, Authors, Keywords, Abstract, References, Wait, None};
 /// One tempory paper summary
 paper_summary temp_paper_summary{};
 
@@ -81,14 +82,14 @@ paper_summary temp_paper_summary{};
 /**
  * @brief Process one line of ASCII text
  */
-
+static State lastState{State::Initial};
+static State state{State::Initial};
 static int onPaper = 1;
-void processOneLine(const string line, map<string, paper_summary>& db) {
+void processOneLine(string line, map<string, paper_summary>& db) {
     // Initial state
-    static State lastState{State::Initial};
-    static State state{State::Initial};
-    done = false;
-    while(!done){
+
+    bool done = false;
+    while(true){
         switch (state) {
             case State::Initial:
                 // Search for PageNumber
@@ -107,13 +108,12 @@ void processOneLine(const string line, map<string, paper_summary>& db) {
                     temp_paper_summary.title = "";
                     temp_paper_summary.authors.clear();
                     temp_paper_summary.keywords = "";
-                    break;
                 }
                 else{
                     state = lastState;
                     lastState = State::PageNumber;
-                    break;
                 }
+                break;
                 // Falling through to State::Title, always assume next line after page number is title. We'll
                 // discard it if it's not the case. We are expecting to find title and keywords
                 // on the same page.
@@ -121,16 +121,16 @@ void processOneLine(const string line, map<string, paper_summary>& db) {
             case State::Title:
                 temp_paper_summary.title = trimSpaces(line);
                 state = State::Authors;
-                break;
+                return;
             case State::Abstract:
                 int keyPos = line.find("Keywords:");
                 if(keyPos != string::npos){
                     if(keyPos != 0){
-                        abstract += line.substr(0,keyPos);
+                        temp_paper_summary.abstract += line.substr(0,keyPos);
                     }
                     line = line.substr(keyPos);
                     lastState = state;
-                    state = State:Keywords;
+                    state = State::Keywords;
                     break;
                 }
                 else if(findPageNumber(line)) {
@@ -138,19 +138,29 @@ void processOneLine(const string line, map<string, paper_summary>& db) {
                     state = State::PageNumber;
                     return;
                 }
+                else if(waitForReferences(line) == RefState::Found) {
+                    lastState = state;
+                    state = State::References;
+                    return;
+                }
                 else {
                     temp_paper_summary.abstract += trimSpaces(line) + " ";
+                    return;
                 }
             case State::Authors:
-                if(tolower(line).find("abstract") != string::npos) {
+                if(tolower(trimSpaces(line)).compare("abstract") == 0) {
+                    lastState = state;
                     state = State::Abstract;
-                    break;
+                    return;
                 }
                 else if(tolower(line).find("keywords:") != string::npos) {
+                    lastState = state;
                     state = State::Keywords;
+                    break;
                     // Need go to Keywords state. Fall through to State::Keywords.
                 } else if(findPageNumber(line)) {
                     // Discard current temp record.
+                    lastState = state;
                     state = State::PageNumber;
                     return;
                 } else {
@@ -158,12 +168,10 @@ void processOneLine(const string line, map<string, paper_summary>& db) {
                     return;
                 }
             case State::Keywords:
-                temp_paper_summary.keywords.push_back(line);
+                temp_paper_summary.keywords+=line;
                 cout << "Keywords State: " << line << endl;
                 // Add this record to DB
-                db.insert(pair<string, paper_summary>(
-                    temp_paper_summary.title, temp_paper_summary));
-
+                lastState = state;
                 state = State::Wait;
                 break;
             case State::References:

@@ -1,5 +1,5 @@
-#include <bits/stdio.cc>
-
+#include <bits/stdc++.h>
+using namespace std;
 
 ifstream fin; 
 ofstream fout;
@@ -12,19 +12,19 @@ string trimSpaces(string line){
     return line;
 }
 int main(){
-	fin.open("page1.txt")
+	fin.open("page1.txt");
 	fout.open("titles.txt");
 	if(fin.is_open()){
 		string line;
-		while(get_line(file,line)){
-			if(line.tolower.find("author index")){
+		while(getline(fin,line)){
+			if(tolower(line).find("author index")){
 				break;
 			}
-			int i = line.find(" . .")
+			int i = line.find(" . .");
 			if(i != string::npos){
 				continue;
 			}
-			string t = trimSpaces(line.substring(0,i+1));
+			string t = trimSpaces(line.substr(0,i+1));
 			fout << t << "\n";
 		}
 	}
